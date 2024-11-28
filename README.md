@@ -97,7 +97,7 @@ The following naming conventions are used throughout this documentation to refer
 Connect to the `manager` node via shell and clone the deployment repository using the following command:  
 
 ```bash
-git clone https://github.com/RCDevs-Security-Organization/docker_webadm_swarm.git && cd docker-deployment
+git clone https://github.com/RCDevs-Security-Organization/docker_webadm_swarm.git && cd docker_webadm_swarm/
 ```
 
 #### Installing the License File  
@@ -149,7 +149,7 @@ You will then be prompted to provide the subject information for the WebADM Cert
 ```
 Enter Common Name of Certificate Authority: RCDevs Security S.A
 Enter Organizational Unit Name of Certificate Authority: IT
-Enter Organization Name of Certificate Authority: RCDEVSDOCS
+Enter Organization Name of Certificate Authority: RCDevs Documentation
 Enter Country Code of Certificate Authority: LU
 ```
 
@@ -166,18 +166,21 @@ Creating service webadm_radiusd_2
 Creating service webadm_webadm_1
 Creating service webadm_webadm_2
 ```
-### Post-deployment Checks
 
-After deployment, use these commands to check that all services are running correctly:
+### Post-Deployment Checks  
 
-#### Swarm Manager
+After the deployment is complete, use the following commands to verify that all services are running correctly:
 
-On `manager`, check services are all started:
+#### Swarm Manager  
+
+On the `manager` node, check that all services are running by using the following command:
 
 ```bash
 docker service ls
-```
-All services should be replicated as shown in the following output:
+```  
+
+All services should be replicated and appear as shown in the output below:
+
 ```
 ID             NAME               MODE         REPLICAS   IMAGE                   PORTS
 fjpkplh0rpe8   webadm_mariadb_1   replicated   1/1        rcdevs/mariadb:latest   
@@ -186,18 +189,19 @@ imfv73z55484   webadm_mariadb_2   replicated   1/1        rcdevs/mariadb:latest
 yrdx3oweltwn   webadm_radiusd_2   replicated   1/1        rcdevs/radiusd:latest   
 oy3ri6hnxl55   webadm_slapd_1     replicated   1/1        rcdevs/slapd:latest     
 ki1u4qy3n3bk   webadm_slapd_2     replicated   1/1        rcdevs/slapd:latest     
-v2wgeskakvme   webadm_webadm_1    replicated   1/1        rcdevs/webadm:latest
+v2wgeskakvme   webadm_webadm_1    replicated   1/1        rcdevs/webadm:latest    
 rrgeb18lrujd   webadm_webadm_2    replicated   1/1        rcdevs/webadm:latest
 ```
 
-#### Swarm Workers
+#### Swarm Workers  
 
-On `worker1` and on `worker2`, run:
+On both `worker1` and `worker2`, run the following command to check the container status:  
+
 ```bash
 docker ps
-```
+```  
 
-The status of the containers must be `Up`, as shown in the following output:
+The containers should be in the **Up** state, as shown in the following output:  
 
 ```
 CONTAINER ID   IMAGE                   COMMAND                  CREATED          STATUS          PORTS                                           NAMES
@@ -205,15 +209,16 @@ eaf954f4d5c4   rcdevs/webadm:latest    "bash /set_webadm.sh…"   11 minutes ago
 69703361636b   rcdevs/radiusd:latest   "bash /set_radiusd_s…"   11 minutes ago   Up 11 minutes   1812/tcp                                        webadm_radiusd_1.1.q46m1ehi2yd1mo0enkum9ghv8
 c90a68a663d9   rcdevs/slapd:latest     "bash /set_slapd_syn…"   11 minutes ago   Up 11 minutes   389/tcp, 636/tcp                                webadm_slapd_1.1.ibyqn0eafhu0zd78a5ihskxn9
 c96e4fe470b9   rcdevs/mariadb:latest   "docker-entrypoint.s…"   11 minutes ago   Up 11 minutes   3306/tcp                                        webadm_mariadb_1.1.pqr9ejyc02mak4rn4itjebrkp
-```
+```  
 
+Additionally, verify the `radiusd` service is properly configured and running by checking its logs with the following command:  
 
-Check also `radiusd` service is well configured and started using:
 ```bash
 docker logs -f $(docker ps --filter name=radiusd --format '{{.ID}}')
-```
+```  
 
-You must have following output:
+The output should be as follows, indicating the service is running correctly:  
+
 ```
 Waiting for webadm_1 server to be ready...
 Checking system architecture... Ok
@@ -223,26 +228,27 @@ Starting OpenOTP RADIUS Bridge... Ok
 Docker mode enable. Waiting for signal to exit...
 ```
 
+### Cleaning Up the Deployment  
 
-### Clean Deployment
+If the initial deployment is successful, it is recommended to clean up the deployment by removing the initial Docker configurations and secrets.  
 
-If the initial deployment is successful, we recommend that you clean the deployment from the initial `Docker Configs` and `Docker Secrets`.
+To do this, re-run the `deploy.sh` script with the `--clean` option:  
 
-Run again `deploy.sh` script with `--clean`:
 ```bash
 bash ./deploy.sh --clean
-```
+```  
 
-This will first give you a Docker command to run on two Swarm workers, so that the synchronisation configuration of the MariaDB servers is preserved. It is important to run this command before continuing with the current process.
+The script will prompt you to run the following Docker command on both Swarm worker nodes to ensure the synchronization configuration for the MariaDB servers is preserved. **It is crucial to run this command before proceeding with the cleanup process:**  
+
 ```
 Run this command on worker1 and worker2 before continuing:
 
 docker exec -it $(docker ps --filter name=mariadb --format '{{.ID}}') cp /etc/mysql/mariadb.conf.d/50-sync.cnf /etc/mysql/mariadb.conf.d/51-sync.cnf
 
-Press Enter only when above action is done!
+Press Enter only when the above action is complete!
 ```
 
-Continuing the process will stop and delete services, configs, and secrets, then restart services from an adapted compose.yml file.
+After you confirm that the command has been executed on both workers, the process will continue. It will stop and delete the services, configurations, and secrets, then restart the services using the adapted `compose.yml` file. The output will look like this:  
 
 ```
 Creating network webadm_default
@@ -254,30 +260,36 @@ Creating service webadm_radiusd_2
 Creating service webadm_webadm_1
 Creating service webadm_webadm_2
 Creating service webadm_mariadb_1
-```
+```  
 
+Once the cleanup process is complete, retain the `compose.yml` file for future updates.
 
-At the end of the process, keep the `compose.yml` file for future updates.
+## Provided Services  
 
-## Provided Services
-The following services are provided by two Swarm Managers:
-| Worker  | Port  | Services  |
-|---|---|---|
-| worker1  | 1443  | WebADM<br/>API Manag<br/>WebApps  |
-| worker1  | 18443  | SOAP API  |
-| worker1  | 11812/tcp<br/>11812/udp<br/>11813/tcp<br/>11813/udp  | Radius server  |
-| worker2  | 2443  | WebADM<br/>API Manag<br/>WebApps  |
-| worker2  | 28443  | SOAP API  |
-| worker2  | 21812/tcp<br/>21812/udp<br/>21813/tcp<br/>21813/udp  | Radius server  |
+The following services are provided across the two Swarm worker nodes:
 
-## How To Update Deployment
-In order to update deployed services, you need first to edit .env file and adapt versions.
-Then, use again `deploy.sh` script with `--update` option:
-```Shell
+| Worker   | Port(s)                                          | Services                      |
+|----------|--------------------------------------------------|-------------------------------|
+| worker1  | 1443                                             | WebADM, API Management, WebApps |
+| worker1  | 18443                                            | SOAP API                      |
+| worker1  | 11812/tcp, 11812/udp, 11813/tcp, 11813/udp      | Radius Server                 |
+| worker2  | 2443                                             | WebADM, API Management, WebApps |
+| worker2  | 28443                                            | SOAP API                      |
+| worker2  | 21812/tcp, 21812/udp, 21813/tcp, 21813/udp      | Radius Server                 |
+
+## How to Update the Deployment  
+
+To update the deployed services, follow these steps:
+
+1. Edit the `.env` file to adjust the version numbers for the components you wish to update.
+2. Re-run the `deploy.sh` script with the `--update` option:  
+
+```bash
 bash ./deploy.sh --update
 ```
 
-This will output you progress of service update:
+The script will output the progress of each service update, for example:  
+
 ```
 Updating service webadm_radiusd_1 (id: c39jefif3wxuu9yv30qyykic2)
 Updating service webadm_radiusd_2 (id: xdcdpc4c2g661nsq9y0ibsjto)
@@ -287,22 +299,28 @@ Updating service webadm_mariadb_1 (id: lwlalckg98xiyhxcvh1ksutif)
 Updating service webadm_mariadb_2 (id: f88lad02gngb2h5oha5tz1d8y)
 Updating service webadm_slapd_1 (id: j2tqllb1dcjva33h5hxzsf8ur)
 Updating service webadm_slapd_2 (id: t9tc629s99265hp3c5jbb7pu7)
-```
+```  
 
-## Adapt To Your Needs
+This process will update the services to the new versions specified in the `.env` file.
 
-After deployment of the cluster, if you have already another LDAP server available (e.g. Active Directory, eDirectory), you can easily modify WebADM configuration on Swarm Manager nodes.
+## Adapt to Your Needs  
 
-Check for location of WebADM configuration using this command:
+Once the cluster is deployed, if you already have an existing LDAP server (e.g., Active Directory, eDirectory), you can easily modify the WebADM configuration on the Swarm Manager nodes.  
+
+To find the location of the WebADM configuration, use the following command:  
+
 ```bash
 docker volume inspect $(docker volume ls --format '{{.Name}}' | grep "_webadm[12]_conf") --format '{{.Mountpoint}}'
 ```
 
-This will output you the location:
+This will return the configuration location, for example:  
+
 ```
 /var/lib/docker/volumes/webadm_webadm1_conf/_data
 ```
 
-Please follow these documentation links for configuring WebADM to your needs:
-[WebADM Standalone Installation Guide](https://docs.rcdevs.com/webadm-standalone-installation-guide/)
-[WebADM Cluster and Failover Setup Guide](https://docs.rcdevs.com/webadm-cluster-installation-guide/)
+To tailor WebADM to your specific setup, refer to the following documentation guides:  
+* [WebADM Standalone Installation Guide](https://docs.rcdevs.com/webadm-standalone-installation-guide/)  
+* [WebADM Cluster and Failover Setup Guide](https://docs.rcdevs.com/webadm-cluster-installation-guide/)  
+
+These resources will guide you through the necessary configuration steps to integrate your LDAP server with WebADM.
