@@ -1,0 +1,10 @@
+#!/bin/bash
+MARIADB_ROOT_PASSWORD=$(cat /run/secrets/mariadb_root_pwd)
+MARIADB_REPLUSER_PASSWORD=$(cat /run/secrets/mariadb_webadm_pwd)
+mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -e "CREATE USER IF NOT EXISTS 'repluser'@'%' IDENTIFIED BY '$MARIADB_REPLUSER_PASSWORD'"
+mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -e "GRANT REPLICATION SLAVE ON *.* TO 'repluser'@'%'"
+mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -e "STOP SLAVE;"
+FILE=$(mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -e "SHOW MASTER STATUS\G;" | grep File | awk '{print $2}' |  tr -d '\r')
+POSITION=$(mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -e "SHOW MASTER STATUS\G;" | grep Position | awk '{print $2}' |  tr -d '\r')
+mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -e "CHANGE MASTER TO MASTER_HOST = 'mariadb_$REMOTE_SERVER_ID', MASTER_USER = 'repluser', MASTER_PASSWORD = '$MARIADB_PASSWORD', MASTER_LOG_FILE = '$FILE', MASTER_LOG_POS = $POSITION, MASTER_CONNECT_RETRY = 10;"
+mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -e "START SLAVE;"

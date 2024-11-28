@@ -1,0 +1,17 @@
+[mysqld]
+server-id       = {{ env "SERVER_ID" }}
+replicate-same-server-id = 0
+
+# Note: Set "auto-increment-increment" to 2 because we are setting up 2 nodes.
+auto-increment-increment = 2
+
+# Note: Set "auto-increment-offset" to 1 for node 1.
+auto-increment-offset = {{ env "SERVER_ID" }}
+replicate-do-db = webadm
+log_bin         = mariadb-bin
+log-basename    = mariadb
+binlog-do-db    = webadm
+log-slave-updates
+relay-log = /var/lib/mysql/slave-relay.log
+relay-log-index = /var/lib/mysql/slave-relay-log.index
+expire_logs_days = 90

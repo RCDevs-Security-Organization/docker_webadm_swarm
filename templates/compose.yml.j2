@@ -1,0 +1,316 @@
+services:
+  webadm_1:
+    image: rcdevs/webadm:${WEBADM_VERSION}
+    hostname: webadm_1
+    deploy:
+        replicas: 1
+        placement:
+                constraints: [ node.hostname == {{environ('NODE1')}} ]
+    environment:
+        - MASTER=1
+    ports:
+      - 1443:443
+      - 18080:8080
+      - 18443:8443
+    entrypoint: ["bash", "/configure_webadm.sh"]
+    volumes:
+      - "webadm1_temp:/opt/webadm/temp"
+      - "webadm1_conf:/opt/webadm/conf"
+      - "webadm1_pki:/opt/webadm/pki"
+      - "webadm1_logs:/opt/webadm/logs"
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    configs:
+      - source: configure_webadm
+        target: /configure_webadm.sh
+      - source: custom_organizational_unit_name
+        target: /custom_organizational_unit_name
+      - source: custom_organization_name
+        target: /custom_organization_name
+      - source: custom_country_code
+        target: /custom_country_code
+    secrets:
+      - webadm_license_key
+      - mariadb_webadm_pwd
+      - slapd_proxy_pwd
+      - ca_crt
+      - ca_key
+    command: ["bash", "/opt/webadm/bin/webadm", "start", "docker"]
+
+  webadm_2:
+    image: rcdevs/webadm:${WEBADM_VERSION}
+    hostname: webadm_2
+    deploy:
+        replicas: 1
+        placement:
+                constraints: [ node.hostname == {{environ('NODE2')}} ]
+    environment:
+        - MASTER=0
+    ports:
+      - 2443:443
+      - 28080:8080
+      - 28443:8443
+    entrypoint: ["bash", "/configure_webadm.sh"]
+    volumes:
+      - "webadm2_temp:/opt/webadm/temp"
+      - "webadm2_conf:/opt/webadm/conf"
+      - "webadm2_pki:/opt/webadm/pki"
+      - "webadm2_logs:/opt/webadm/logs"
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    configs:
+      - source: configure_webadm
+        target: /configure_webadm.sh
+      - source: custom_organizational_unit_name
+        target: /custom_organizational_unit_name
+      - source: custom_organization_name
+        target: /custom_organization_name
+      - source: custom_country_code
+        target: /custom_country_code
+    secrets:
+      - webadm_license_key
+      - mariadb_webadm_pwd
+      - slapd_proxy_pwd
+      - ca_crt
+      - ca_key
+    command: ["bash", "/opt/webadm/bin/webadm", "start", "docker"]
+
+  mariadb_1:
+    image: rcdevs/mariadb:${MARIADB_VERSION}
+    hostname: mariadb_1
+    deploy:
+        replicas: 1
+        placement:
+                constraints: [ node.hostname == {{environ('NODE1')}} ]
+    environment:
+        - MARIADB_ROOT_PASSWORD_FILE=/run/secrets/mariadb_root_pwd
+        - MARIADB_DATABASE=webadm
+        - MARIADB_USER=webadm
+        - MARIADB_PASSWORD_FILE=/run/secrets/mariadb_webadm_pwd
+        - SERVER_ID=1
+        - REMOTE_SERVER_ID=2
+    volumes:
+      - "mariadb_1_etc:/etc/mysql/"
+      - "mariadb_1_data:/var/lib/mysql/"
+      - "mariadb_1_logs:/var/log/mysql/"
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    configs:
+      - source: mariadb_init
+        target: /docker-entrypoint-initdb.d/z_init.sh
+      - source: mariadb_sync_cnf
+        target: /etc/mysql/mariadb.conf.d/50-sync.cnf
+    secrets:
+      - mariadb_root_pwd
+      - mariadb_webadm_pwd
+
+  mariadb_2:
+    image: rcdevs/mariadb:${MARIADB_VERSION}
+    hostname: mariadb_2
+    deploy:
+        replicas: 1
+        placement:
+                constraints: [ node.hostname == {{environ('NODE2')}} ]
+    environment:
+        - MARIADB_ROOT_PASSWORD_FILE=/run/secrets/mariadb_root_pwd
+        - MARIADB_DATABASE=webadm
+        - MARIADB_USER=webadm
+        - MARIADB_PASSWORD_FILE=/run/secrets/mariadb_webadm_pwd
+        - SERVER_ID=2
+        - REMOTE_SERVER_ID=1
+    volumes:
+      - "mariadb_2_etc:/etc/mysql/"
+      - "mariadb_2_data:/var/lib/mysql/"
+      - "mariadb_2_logs:/var/log/mysql/"
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    configs:
+      - source: mariadb_init
+        target: /docker-entrypoint-initdb.d/z_init.sh
+      - source: mariadb_sync_cnf
+        target: /etc/mysql/mariadb.conf.d/50-sync.cnf
+    secrets:
+      - mariadb_root_pwd
+      - mariadb_webadm_pwd
+
+  slapd_1:
+    image: rcdevs/slapd:${SLAPD_VERSION}
+    hostname: slapd_1
+    deploy:
+        replicas: 1
+        placement:
+                constraints: [ node.hostname == {{environ('NODE1')}} ]
+    environment:
+        - REMOTE_SERVER=slapd_2
+    volumes:
+      - "slapd_1_conf:/opt/slapd/conf/"
+      - "slapd_1_data:/opt/slapd/data/"
+      - "slapd_1_logs:/opt/slapd/logs/"
+      - "slapd_1_temp:/opt/slapd/temp/"
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    configs:
+      - source: configure_slapd
+        target: /configure_slapd.sh
+    secrets:
+      - slapd_admin_pwd
+      - slapd_proxy_pwd
+    entrypoint: ["bash", "/configure_slapd.sh"]
+    command: ["bash", "/opt/slapd/bin/slapd", "start", "docker"]
+
+  slapd_2:
+    image: rcdevs/slapd:${SLAPD_VERSION}
+    hostname: slapd_2    
+    deploy:
+        replicas: 1
+        placement:
+                constraints: [ node.hostname == {{environ('NODE2')}} ]
+    environment:
+        - REMOTE_SERVER=slapd_1
+    volumes:
+      - "slapd_2_conf:/opt/slapd/conf/"
+      - "slapd_2_data:/opt/slapd/data/"
+      - "slapd_2_logs:/opt/slapd/logs/"
+      - "slapd_2_temp:/opt/slapd/temp/"
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    configs:
+      - source: configure_slapd
+        target: /configure_slapd.sh
+    secrets:
+      - slapd_admin_pwd
+      - slapd_proxy_pwd
+    entrypoint: ["bash", "/configure_slapd.sh"]
+    command: ["bash", "/opt/slapd/bin/slapd", "start", "docker"]
+
+  radiusd_1:
+    image: rcdevs/radiusd:${RADIUSD_VERSION}
+    hostname: radiusd_1
+    deploy:
+        replicas: 1
+        placement:
+                constraints: [ node.hostname == {{environ('NODE1')}} ]
+    ports:
+      - 11812:1812/tcp
+      - 11812:1812/udp      
+      - 11813:1813/tcp
+      - 11813:1813/udp      
+    volumes:
+      - "radiusd_1_conf:/opt/radiusd/conf/"
+      - "radiusd_1_logs:/opt/radiusd/logs/"
+      - "radiusd_1_temp:/opt/radiusd/temp/"
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    configs:
+      - source: configure_radiusd
+        target: /configure_radiusd.sh
+      - source: custom_organizational_unit_name
+        target: /custom_organizational_unit_name
+      - source: custom_organization_name
+        target: /custom_organization_name
+      - source: custom_country_code
+        target: /custom_country_code
+    secrets:
+      - radiusd_secret
+      - slapd_admin_pwd
+    entrypoint: ["bash", "/configure_radiusd.sh"]
+    command: ["bash", "/opt/radiusd/bin/radiusd", "start", "docker"]
+
+  radiusd_2:
+    image: rcdevs/radiusd:${RADIUSD_VERSION}
+    hostname: radiusd_2
+    deploy:
+        replicas: 1
+        placement:
+                constraints: [ node.hostname == {{environ('NODE2')}} ]
+    ports:
+      - 21812:1812/tcp
+      - 21812:1812/udp      
+      - 21813:1813/tcp
+      - 21813:1813/udp      
+    volumes:
+      - "radiusd_2_conf:/opt/radiusd/conf/"
+      - "radiusd_2_logs:/opt/radiusd/logs/"
+      - "radiusd_2_temp:/opt/radiusd/temp/"
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    configs:
+      - source: configure_radiusd
+        target: /configure_radiusd.sh
+      - source: custom_organizational_unit_name
+        target: /custom_organizational_unit_name
+      - source: custom_organization_name
+        target: /custom_organization_name
+      - source: custom_country_code
+        target: /custom_country_code
+    secrets:
+      - radiusd_secret
+      - slapd_admin_pwd
+    entrypoint: ["bash", "/configure_radiusd.sh"]
+    command: ["bash", "/opt/radiusd/bin/radiusd", "start", "docker"]
+
+volumes:
+  webadm1_logs:
+  webadm1_temp:
+  webadm1_conf:
+  webadm1_pki:
+  webadm2_logs:
+  webadm2_temp:
+  webadm2_conf:
+  webadm2_pki:
+  mariadb_1_etc:
+  mariadb_1_data:
+  mariadb_1_logs:
+  mariadb_2_etc:
+  mariadb_2_data:
+  mariadb_2_logs:
+  slapd_1_conf:
+  slapd_1_data:
+  slapd_1_logs:
+  slapd_1_temp:
+  slapd_2_conf:
+  slapd_2_data:
+  slapd_2_logs:
+  slapd_2_temp:
+  radiusd_1_conf:
+  radiusd_1_logs:
+  radiusd_1_temp:
+  radiusd_2_conf:
+  radiusd_2_logs:
+  radiusd_2_temp:
+
+configs:
+  mariadb_init:
+    external: true
+  mariadb_sync_cnf:
+    external: true
+  configure_slapd:
+    external: true
+  configure_radiusd:
+    external: true
+  configure_webadm:
+    external: true
+  custom_organizational_unit_name:
+    external: true
+  custom_organization_name:
+    external: true
+  custom_country_code:
+    external: true
+
+secrets:
+  mariadb_root_pwd:
+    external: true
+  mariadb_webadm_pwd:
+    external: true
+  slapd_admin_pwd:
+    external: true
+  slapd_proxy_pwd:
+    external: true
+  webadm_license_key:
+    external: true
+  ca_crt:
+    external: true
+  ca_key:
+    external: true
+  radiusd_secret:
+    external: true

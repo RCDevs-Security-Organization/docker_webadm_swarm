@@ -1,0 +1,5 @@
+license.key
+.Trash*
+.env
+logs
+compose.yml
